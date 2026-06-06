@@ -10,7 +10,7 @@ import {
   deleteJournalEntry as storageDeleteJournalEntry,
   initStorage
 } from '../utils/storage';
-import { sanitizeString, validateCheckIn, validateJournalEntry } from '../utils/validation';
+import { sanitizeString, validateCheckIn, validateJournalEntry } from '../utils/securityUtils';
 
 export function useWellnessData() {
   const [profile, setProfile] = useState<UserProfile>({

@@ -1,4 +1,11 @@
 import type { CheckIn, JournalEntry, UserProfile } from '../types';
+import {
+  safeStorage,
+  safeParseJSON,
+  isValidProfile,
+  isValidCheckIn,
+  isValidJournalEntry
+} from './securityUtils';
 
 const STORAGE_KEYS = {
   DB_VERSION: 'mindtrack_db_version',
@@ -10,7 +17,9 @@ const STORAGE_KEYS = {
 
 const DB_VERSION_VALUE = 'v2';
 
-// Helper to get formatted date string (YYYY-MM-DD)
+/**
+ * Helper to get formatted date string (YYYY-MM-DD)
+ */
 export function formatDateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -167,51 +176,61 @@ function generateMockData() {
 
 // Initialize and manage version migrations
 export function initStorage(): void {
-  const currentVersion = localStorage.getItem(STORAGE_KEYS.DB_VERSION);
+  const currentVersion = safeStorage.getItem(STORAGE_KEYS.DB_VERSION);
   
   if (currentVersion !== DB_VERSION_VALUE) {
     // Database migration: clear old layout keys to avoid rendering crashes due to 1-5 mood scales
-    localStorage.removeItem(STORAGE_KEYS.PROFILE);
-    localStorage.removeItem(STORAGE_KEYS.CHECKINS);
-    localStorage.removeItem(STORAGE_KEYS.JOURNAL);
-    localStorage.setItem(STORAGE_KEYS.DB_VERSION, DB_VERSION_VALUE);
+    safeStorage.removeItem(STORAGE_KEYS.PROFILE);
+    safeStorage.removeItem(STORAGE_KEYS.CHECKINS);
+    safeStorage.removeItem(STORAGE_KEYS.JOURNAL);
+    safeStorage.setItem(STORAGE_KEYS.DB_VERSION, DB_VERSION_VALUE);
   }
 
-  if (!localStorage.getItem(STORAGE_KEYS.PROFILE)) {
-    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(DEFAULT_PROFILE));
+  if (!safeStorage.getItem(STORAGE_KEYS.PROFILE)) {
+    safeStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(DEFAULT_PROFILE));
   }
   
   const { mockCheckIns, mockJournal } = generateMockData();
   
-  if (!localStorage.getItem(STORAGE_KEYS.CHECKINS)) {
-    localStorage.setItem(STORAGE_KEYS.CHECKINS, JSON.stringify(mockCheckIns));
+  if (!safeStorage.getItem(STORAGE_KEYS.CHECKINS)) {
+    safeStorage.setItem(STORAGE_KEYS.CHECKINS, JSON.stringify(mockCheckIns));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.JOURNAL)) {
-    localStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(mockJournal));
+  if (!safeStorage.getItem(STORAGE_KEYS.JOURNAL)) {
+    safeStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(mockJournal));
   }
 }
 
 // User Profile functions
 export function getProfile(): UserProfile {
   initStorage();
-  const profile = localStorage.getItem(STORAGE_KEYS.PROFILE);
-  return profile ? JSON.parse(profile) : DEFAULT_PROFILE;
+  const profile = safeStorage.getItem(STORAGE_KEYS.PROFILE);
+  const parsed = safeParseJSON<UserProfile>(profile, DEFAULT_PROFILE);
+  return isValidProfile(parsed) ? parsed : DEFAULT_PROFILE;
 }
 
 export function saveProfile(profile: UserProfile): void {
-  localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+  if (isValidProfile(profile)) {
+    safeStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+  } else {
+    console.warn('[Storage] Rejected saving malformed UserProfile.');
+  }
 }
 
 // Check-ins functions
 export function getCheckIns(): CheckIn[] {
   initStorage();
-  const checkins = localStorage.getItem(STORAGE_KEYS.CHECKINS);
-  return checkins ? JSON.parse(checkins) : [];
+  const checkins = safeStorage.getItem(STORAGE_KEYS.CHECKINS);
+  const parsed = safeParseJSON<CheckIn[]>(checkins, []);
+  return Array.isArray(parsed) ? parsed.filter(isValidCheckIn) : [];
 }
 
 export function saveCheckIn(checkin: CheckIn): void {
+  if (!isValidCheckIn(checkin)) {
+    console.warn('[Storage] Rejected saving malformed CheckIn.');
+    return;
+  }
+  
   const checkins = getCheckIns();
-  // Check if checkin for this date already exists
   const existingIdx = checkins.findIndex((c) => c.date === checkin.date);
   if (existingIdx !== -1) {
     checkins[existingIdx] = checkin; // overwrite
@@ -220,23 +239,29 @@ export function saveCheckIn(checkin: CheckIn): void {
   }
   // Sort chronologically
   checkins.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  localStorage.setItem(STORAGE_KEYS.CHECKINS, JSON.stringify(checkins));
+  safeStorage.setItem(STORAGE_KEYS.CHECKINS, JSON.stringify(checkins));
 }
 
 export function deleteCheckIn(id: string): void {
   const checkins = getCheckIns();
   const filtered = checkins.filter((c) => c.id !== id);
-  localStorage.setItem(STORAGE_KEYS.CHECKINS, JSON.stringify(filtered));
+  safeStorage.setItem(STORAGE_KEYS.CHECKINS, JSON.stringify(filtered));
 }
 
 // Journal Entries functions
 export function getJournalEntries(): JournalEntry[] {
   initStorage();
-  const entries = localStorage.getItem(STORAGE_KEYS.JOURNAL);
-  return entries ? JSON.parse(entries) : [];
+  const entries = safeStorage.getItem(STORAGE_KEYS.JOURNAL);
+  const parsed = safeParseJSON<JournalEntry[]>(entries, []);
+  return Array.isArray(parsed) ? parsed.filter(isValidJournalEntry) : [];
 }
 
 export function saveJournalEntry(entry: JournalEntry): void {
+  if (!isValidJournalEntry(entry)) {
+    console.warn('[Storage] Rejected saving malformed JournalEntry.');
+    return;
+  }
+
   const entries = getJournalEntries();
   const existingIdx = entries.findIndex((e) => e.id === entry.id);
   if (existingIdx !== -1) {
@@ -246,18 +271,18 @@ export function saveJournalEntry(entry: JournalEntry): void {
   }
   // Sort reverse chronological (newest first)
   entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  localStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(entries));
+  safeStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(entries));
 }
 
 export function deleteJournalEntry(id: string): void {
   const entries = getJournalEntries();
   const filtered = entries.filter((e) => e.id !== id);
-  localStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(filtered));
+  safeStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(filtered));
 }
 
 // Theme settings
 export function getThemePreference(): 'light' | 'dark' {
-  const theme = localStorage.getItem(STORAGE_KEYS.THEME);
+  const theme = safeStorage.getItem(STORAGE_KEYS.THEME);
   if (theme === 'light' || theme === 'dark') return theme;
   // Fallback to system preference
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -267,5 +292,5 @@ export function getThemePreference(): 'light' | 'dark' {
 }
 
 export function saveThemePreference(theme: 'light' | 'dark'): void {
-  localStorage.setItem(STORAGE_KEYS.THEME, theme);
+  safeStorage.setItem(STORAGE_KEYS.THEME, theme);
 }
