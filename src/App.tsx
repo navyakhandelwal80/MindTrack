@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Sparkles, Activity } from 'lucide-react';
-import type { TabName } from './types';
+import type { TabName, UserProfile, CheckIn, JournalEntry } from './types';
 
 // Custom Hooks
 import useTheme from './hooks/useTheme';
@@ -36,12 +36,12 @@ function App() {
   } = useWellnessData();
 
   // Save profile helper
-  const handleSaveProfile = (updatedProfile: any) => {
+  const handleSaveProfile = (updatedProfile: UserProfile) => {
     saveProfile(updatedProfile);
   };
 
   // Save Check-in helper
-  const handleSaveCheckIn = (newCheckIn: any) => {
+  const handleSaveCheckIn = (newCheckIn: CheckIn) => {
     const result = saveCheckIn(newCheckIn);
     if (result.success) {
       setTimeout(() => {
@@ -53,7 +53,7 @@ function App() {
   };
 
   // Save Journal entry helper
-  const handleSaveJournalEntry = (newEntry: any) => {
+  const handleSaveJournalEntry = (newEntry: JournalEntry) => {
     const result = saveJournalEntry(newEntry);
     if (!result.success) {
       alert(result.errors?.join('\n') || 'Failed to save reflection.');

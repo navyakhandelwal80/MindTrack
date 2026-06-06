@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Minus, CheckCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import type { CheckIn } from '../types';
-import { formatDateString } from '../utils/storage';
+import { formatDateString } from '../utils/date';
+import {
+  getRatingColor,
+  getMoodEmojiWithLabel,
+  getStressLabel,
+  getEnergyLabel,
+  getSleepLabel,
+} from '../utils/presentation';
+
+// Sub-components
+import HabitMetricsSection from './HabitMetricsSection';
+import TriggerPillGroup from './TriggerPillGroup';
 
 interface CheckInFormProps {
   existingCheckIns: CheckIn[];
   onSave: (checkin: CheckIn) => void;
 }
-
-const AVAILABLE_TRIGGERS = [
-  'Exam pressure',
-  'Lack of preparation',
-  'Time management',
-  'Family expectations',
-  'Peer comparison',
-  'Result anxiety',
-  'Burnout',
-  'Financial concerns'
-];
 
 const EXAM_TYPES = [
   'JEE',
@@ -80,14 +80,6 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
     }
   };
 
-  const increment = (val: number, setter: React.Dispatch<React.SetStateAction<number>>, max = 24, step = 1) => {
-    setter(Math.min(max, val + step));
-  };
-
-  const decrement = (val: number, setter: React.Dispatch<React.SetStateAction<number>>, min = 0, step = 1) => {
-    setter(Math.max(min, val - step));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const checkinData: CheckIn = {
@@ -110,44 +102,6 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
     setTimeout(() => {
       setIsSubmitted(false);
     }, 1200);
-  };
-
-  const getRatingColor = (level: number, type: 'mood' | 'stress' | 'energy' | 'sleep') => {
-    if (type === 'stress') {
-      if (level <= 3) return 'var(--success)';
-      if (level <= 7) return 'var(--warning)';
-      return 'var(--danger)';
-    } else {
-      if (level <= 4) return 'var(--danger)';
-      if (level <= 7) return 'var(--warning)';
-      return 'var(--success)';
-    }
-  };
-
-  const getMoodEmoji = (score: number) => {
-    if (score <= 2) return '😫 Very Low';
-    if (score <= 4) return '😔 Low';
-    if (score <= 6) return '😐 Neutral';
-    if (score <= 8) return '😊 Good';
-    return '😇 Excellent';
-  };
-
-  const getStressLabel = (level: number) => {
-    if (level <= 3) return 'Relaxed';
-    if (level <= 7) return 'Moderate';
-    return 'Burned Out';
-  };
-
-  const getEnergyLabel = (level: number) => {
-    if (level <= 3) return 'Exhausted';
-    if (level <= 7) return 'Moderate';
-    return 'Energetic';
-  };
-
-  const getSleepLabel = (level: number) => {
-    if (level <= 3) return 'Poor';
-    if (level <= 7) return 'Restless';
-    return 'Refreshed';
   };
 
   return (
@@ -210,7 +164,7 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label className="form-label" htmlFor="checkin-mood" style={{ marginBottom: 0 }}>Mood Rating</label>
                 <span className="badge" style={{ background: getRatingColor(mood, 'mood') + '20', color: getRatingColor(mood, 'mood') }}>
-                  {getMoodEmoji(mood)} ({mood}/10)
+                  {getMoodEmojiWithLabel(mood)}
                 </span>
               </div>
               <input
@@ -222,7 +176,7 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
                 aria-valuemin={1}
                 aria-valuemax={10}
                 aria-valuenow={mood}
-                aria-valuetext={getMoodEmoji(mood)}
+                aria-valuetext={getMoodEmojiWithLabel(mood)}
                 onChange={(e) => setMood(parseInt(e.target.value))}
                 className="custom-range"
                 style={{ accentColor: getRatingColor(mood, 'mood') }}
@@ -303,114 +257,20 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
           </div>
 
           {/* Triggers Section */}
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>Identify Stress Triggers</h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-              What is contributing to your stress today? (Select all that apply)
-            </p>
-            <div className="triggers-container" role="group" aria-label="Stress triggers selection">
-              {AVAILABLE_TRIGGERS.map((trigger) => {
-                const isSelected = selectedTriggers.includes(trigger);
-                return (
-                  <button
-                    key={trigger}
-                    type="button"
-                    className={`trigger-pill ${isSelected ? 'selected' : ''}`}
-                    aria-pressed={isSelected}
-                    onClick={() => toggleTrigger(trigger)}
-                  >
-                    {trigger} {isSelected && '✓'}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <TriggerPillGroup
+            selectedTriggers={selectedTriggers}
+            onToggleTrigger={toggleTrigger}
+          />
 
           {/* Habits Section */}
-          <div className="glass-card">
-            <h3 style={{ fontSize: '1.05rem', marginBottom: '1rem' }}>Daily Activity Metrics</h3>
-            
-            {/* Study Hours */}
-            <div className="habit-tracker-row">
-              <div>
-                <strong style={{ fontSize: '0.9rem', display: 'block' }}>Study Duration</strong>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Focused exam preparation</span>
-              </div>
-              <div className="habit-value-controller">
-                <button 
-                  type="button" 
-                  className="controller-btn" 
-                  aria-label="Decrease study hours"
-                  onClick={() => decrement(studyHours, setStudyHours, 0, 0.5)}
-                >
-                  <Minus size={14} aria-hidden="true" />
-                </button>
-                <span className="habit-val-display" aria-live="polite" aria-label={`${studyHours} study hours`}>{studyHours} hrs</span>
-                <button 
-                  type="button" 
-                  className="controller-btn" 
-                  aria-label="Increase study hours"
-                  onClick={() => increment(studyHours, setStudyHours, 24, 0.5)}
-                >
-                  <Plus size={14} aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-
-            {/* Exercise Minutes */}
-            <div className="habit-tracker-row">
-              <div>
-                <strong style={{ fontSize: '0.9rem', display: 'block' }}>Exercise & Movement</strong>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Walk, gym, yoga, stretching</span>
-              </div>
-              <div className="habit-value-controller">
-                <button 
-                  type="button" 
-                  className="controller-btn" 
-                  aria-label="Decrease exercise minutes"
-                  onClick={() => decrement(exerciseMinutes, setExerciseMinutes, 0, 5)}
-                >
-                  <Minus size={14} aria-hidden="true" />
-                </button>
-                <span className="habit-val-display" aria-live="polite" aria-label={`${exerciseMinutes} exercise minutes`}>{exerciseMinutes} min</span>
-                <button 
-                  type="button" 
-                  className="controller-btn" 
-                  aria-label="Increase exercise minutes"
-                  onClick={() => increment(exerciseMinutes, setExerciseMinutes, 300, 5)}
-                >
-                  <Plus size={14} aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-
-            {/* Water Cups */}
-            <div className="habit-tracker-row">
-              <div>
-                <strong style={{ fontSize: '0.9rem', display: 'block' }}>Hydration</strong>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Water cups logged</span>
-              </div>
-              <div className="habit-value-controller">
-                <button 
-                  type="button" 
-                  className="controller-btn" 
-                  aria-label="Decrease water cups"
-                  onClick={() => decrement(waterCups, setWaterCups, 0, 1)}
-                >
-                  <Minus size={14} aria-hidden="true" />
-                </button>
-                <span className="habit-val-display" aria-live="polite" aria-label={`${waterCups} water cups`}>{waterCups} cups</span>
-                <button 
-                  type="button" 
-                  className="controller-btn" 
-                  aria-label="Increase water cups"
-                  onClick={() => increment(waterCups, setWaterCups, 30, 1)}
-                >
-                  <Plus size={14} aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          </div>
+          <HabitMetricsSection
+            studyHours={studyHours}
+            setStudyHours={setStudyHours}
+            exerciseMinutes={exerciseMinutes}
+            setExerciseMinutes={setExerciseMinutes}
+            waterCups={waterCups}
+            setWaterCups={setWaterCups}
+          />
 
           {/* Notes Section */}
           <div className="glass-card">
