@@ -14,6 +14,19 @@ import {
 // Sub-components
 import HabitMetricsSection from './HabitMetricsSection';
 import TriggerPillGroup from './TriggerPillGroup';
+import RatingSlider from './RatingSlider';
+
+/** Default check-in field values, used for both initial state and form reset. */
+const CHECKIN_DEFAULTS = {
+  mood: 6,
+  stress: 5,
+  energy: 6,
+  sleepQuality: 7,
+  studyHours: 8,
+  examType: 'JEE' as ExamType,
+  exerciseMinutes: 30,
+  waterCups: 6,
+} as const;
 
 interface CheckInFormProps {
   existingCheckIns: CheckIn[];
@@ -22,15 +35,15 @@ interface CheckInFormProps {
 
 export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSave }) => {
   const [date, setDate] = useState<string>(formatDateString(new Date()));
-  const [mood, setMood] = useState<number>(6); // Default to Neutral/Good
-  const [stress, setStress] = useState<number>(5); // Default to Medium
-  const [energy, setEnergy] = useState<number>(6); // Default to Moderate
-  const [sleepQuality, setSleepQuality] = useState<number>(7); // Default to Good
-  const [studyHours, setStudyHours] = useState<number>(8);
-  const [examType, setExamType] = useState<ExamType>('JEE');
+  const [mood, setMood] = useState<number>(CHECKIN_DEFAULTS.mood);
+  const [stress, setStress] = useState<number>(CHECKIN_DEFAULTS.stress);
+  const [energy, setEnergy] = useState<number>(CHECKIN_DEFAULTS.energy);
+  const [sleepQuality, setSleepQuality] = useState<number>(CHECKIN_DEFAULTS.sleepQuality);
+  const [studyHours, setStudyHours] = useState<number>(CHECKIN_DEFAULTS.studyHours);
+  const [examType, setExamType] = useState<ExamType>(CHECKIN_DEFAULTS.examType);
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
-  const [exerciseMinutes, setExerciseMinutes] = useState<number>(30);
-  const [waterCups, setWaterCups] = useState<number>(6);
+  const [exerciseMinutes, setExerciseMinutes] = useState<number>(CHECKIN_DEFAULTS.exerciseMinutes);
+  const [waterCups, setWaterCups] = useState<number>(CHECKIN_DEFAULTS.waterCups);
   const [notes, setNotes] = useState<string>('');
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
 
@@ -49,15 +62,15 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
       setWaterCups(existing.waterCups || 6);
       setNotes(existing.notes || '');
     } else {
-      setMood(6);
-      setStress(5);
-      setEnergy(6);
-      setSleepQuality(7);
-      setStudyHours(8);
-      setExamType('JEE');
+      setMood(CHECKIN_DEFAULTS.mood);
+      setStress(CHECKIN_DEFAULTS.stress);
+      setEnergy(CHECKIN_DEFAULTS.energy);
+      setSleepQuality(CHECKIN_DEFAULTS.sleepQuality);
+      setStudyHours(CHECKIN_DEFAULTS.studyHours);
+      setExamType(CHECKIN_DEFAULTS.examType);
       setSelectedTriggers([]);
-      setExerciseMinutes(30);
-      setWaterCups(6);
+      setExerciseMinutes(CHECKIN_DEFAULTS.exerciseMinutes);
+      setWaterCups(CHECKIN_DEFAULTS.waterCups);
       setNotes('');
     }
   }, [date, existingCheckIns]);
@@ -149,101 +162,23 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
           <div className="glass-card">
             <h3 style={{ fontSize: '1.05rem', marginBottom: '1.25rem' }}>How are you feeling today? (Scale 1-10)</h3>
 
-            {/* Mood Slider */}
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" htmlFor="checkin-mood" style={{ marginBottom: 0 }}>Mood Rating</label>
-                <span className="badge" style={{ background: getRatingColor(mood, 'mood') + '20', color: getRatingColor(mood, 'mood') }}>
-                  {getMoodEmojiWithLabel(mood)}
-                </span>
-              </div>
-              <input
-                type="range"
-                id="checkin-mood"
-                min="1"
-                max="10"
-                value={mood}
-                aria-valuemin={1}
-                aria-valuemax={10}
-                aria-valuenow={mood}
-                aria-valuetext={getMoodEmojiWithLabel(mood)}
-                onChange={(e) => setMood(parseInt(e.target.value))}
-                className="custom-range"
-                style={{ accentColor: getRatingColor(mood, 'mood') }}
-              />
-            </div>
-
-            {/* Stress Slider */}
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" htmlFor="checkin-stress" style={{ marginBottom: 0 }}>Stress Level</label>
-                <span className="badge" style={{ background: getRatingColor(stress, 'stress') + '20', color: getRatingColor(stress, 'stress') }}>
-                  {getStressLabel(stress)} ({stress}/10)
-                </span>
-              </div>
-              <input
-                type="range"
-                id="checkin-stress"
-                min="1"
-                max="10"
-                value={stress}
-                aria-valuemin={1}
-                aria-valuemax={10}
-                aria-valuenow={stress}
-                aria-valuetext={getStressLabel(stress)}
-                onChange={(e) => setStress(parseInt(e.target.value))}
-                className="custom-range"
-                style={{ accentColor: getRatingColor(stress, 'stress') }}
-              />
-            </div>
-
-            {/* Energy Slider */}
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" htmlFor="checkin-energy" style={{ marginBottom: 0 }}>Energy Level</label>
-                <span className="badge" style={{ background: getRatingColor(energy, 'energy') + '20', color: getRatingColor(energy, 'energy') }}>
-                  {getEnergyLabel(energy)} ({energy}/10)
-                </span>
-              </div>
-              <input
-                type="range"
-                id="checkin-energy"
-                min="1"
-                max="10"
-                value={energy}
-                aria-valuemin={1}
-                aria-valuemax={10}
-                aria-valuenow={energy}
-                aria-valuetext={getEnergyLabel(energy)}
-                onChange={(e) => setEnergy(parseInt(e.target.value))}
-                className="custom-range"
-                style={{ accentColor: getRatingColor(energy, 'energy') }}
-              />
-            </div>
-
-            {/* Sleep Quality Slider */}
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" htmlFor="checkin-sleep" style={{ marginBottom: 0 }}>Sleep Quality</label>
-                <span className="badge" style={{ background: getRatingColor(sleepQuality, 'sleep') + '20', color: getRatingColor(sleepQuality, 'sleep') }}>
-                  {getSleepLabel(sleepQuality)} ({sleepQuality}/10)
-                </span>
-              </div>
-              <input
-                type="range"
-                id="checkin-sleep"
-                min="1"
-                max="10"
-                value={sleepQuality}
-                aria-valuemin={1}
-                aria-valuemax={10}
-                aria-valuenow={sleepQuality}
-                aria-valuetext={getSleepLabel(sleepQuality)}
-                onChange={(e) => setSleepQuality(parseInt(e.target.value))}
-                className="custom-range"
-                style={{ accentColor: getRatingColor(sleepQuality, 'sleep') }}
-              />
-            </div>
+            <RatingSlider
+              id="checkin-mood" label="Mood Rating" value={mood} onChange={setMood}
+              colorType="mood" badgeLabel={getMoodEmojiWithLabel(mood)} getRatingColor={getRatingColor}
+            />
+            <RatingSlider
+              id="checkin-stress" label="Stress Level" value={stress} onChange={setStress}
+              colorType="stress" badgeLabel={`${getStressLabel(stress)} (${stress}/10)`} getRatingColor={getRatingColor}
+            />
+            <RatingSlider
+              id="checkin-energy" label="Energy Level" value={energy} onChange={setEnergy}
+              colorType="energy" badgeLabel={`${getEnergyLabel(energy)} (${energy}/10)`} getRatingColor={getRatingColor}
+            />
+            <RatingSlider
+              id="checkin-sleep" label="Sleep Quality" value={sleepQuality} onChange={setSleepQuality}
+              colorType="sleep" badgeLabel={`${getSleepLabel(sleepQuality)} (${sleepQuality}/10)`} getRatingColor={getRatingColor}
+              isLast
+            />
           </div>
 
           {/* Triggers Section */}

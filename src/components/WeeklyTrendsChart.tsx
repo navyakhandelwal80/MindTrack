@@ -3,15 +3,22 @@ import { TrendingUp } from 'lucide-react';
 import type { CheckIn } from '../types';
 import { formatDateLabel } from '../utils/date';
 
+/** Configuration for each trend line in the chart. */
+const TREND_LINES = [
+  { key: 'mood' as const, label: 'Mood', color: 'var(--primary)', className: 'chart-line', dotClass: 'chart-dot', strokeStyle: {} },
+  { key: 'stress' as const, label: 'Stress', color: 'var(--danger)', className: 'chart-line-secondary', dotClass: 'chart-dot-secondary', strokeStyle: { stroke: 'var(--danger)' } },
+  { key: 'energy' as const, label: 'Energy', color: 'var(--warning)', className: 'chart-line-secondary', dotClass: 'chart-dot-secondary', strokeStyle: { stroke: 'var(--warning)', strokeDasharray: 'none', strokeWidth: 3 } },
+  { key: 'sleepQuality' as const, label: 'Sleep', color: 'var(--success)', className: 'chart-line-secondary', dotClass: 'chart-dot-secondary', strokeStyle: { stroke: 'var(--success)', strokeDasharray: '3' } },
+] as const;
+
 interface WeeklyTrendsChartProps {
   recentLogs: CheckIn[];
 }
 
 export const WeeklyTrendsChart: React.FC<WeeklyTrendsChartProps> = ({ recentLogs }) => {
-  const [showMood, setShowMood] = useState<boolean>(true);
-  const [showStress, setShowStress] = useState<boolean>(true);
-  const [showEnergy, setShowEnergy] = useState<boolean>(true);
-  const [showSleep, setShowSleep] = useState<boolean>(true);
+  const [visible, setVisible] = useState<Record<string, boolean>>(
+    Object.fromEntries(TREND_LINES.map((t) => [t.key, true]))
+  );
 
   const svgWidth = 500;
   const svgHeight = 220;
@@ -31,10 +38,7 @@ export const WeeklyTrendsChart: React.FC<WeeklyTrendsChartProps> = ({ recentLogs
       .join(' ');
   };
 
-  const moodPoints = getPoints('mood');
-  const stressPoints = getPoints('stress');
-  const energyPoints = getPoints('energy');
-  const sleepPoints = getPoints('sleepQuality');
+  const toggleLine = (key: string) => setVisible((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
     <div className="glass-card">
@@ -54,14 +58,7 @@ export const WeeklyTrendsChart: React.FC<WeeklyTrendsChartProps> = ({ recentLogs
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
             const y = padding.top + ratio * graphHeight;
             return (
-              <line
-                key={i}
-                x1={padding.left}
-                y1={y}
-                x2={svgWidth - padding.right}
-                y2={y}
-                className="chart-grid-line"
-              />
+              <line key={i} x1={padding.left} y1={y} x2={svgWidth - padding.right} y2={y} className="chart-grid-line" />
             );
           })}
 
@@ -69,13 +66,7 @@ export const WeeklyTrendsChart: React.FC<WeeklyTrendsChartProps> = ({ recentLogs
           {recentLogs.map((log, index) => {
             const x = padding.left + (index / (recentLogs.length - 1)) * graphWidth;
             return (
-              <text
-                key={log.id}
-                x={x}
-                y={svgHeight - padding.bottom + 18}
-                textAnchor="middle"
-                className="chart-axis-text"
-              >
+              <text key={log.id} x={x} y={svgHeight - padding.bottom + 18} textAnchor="middle" className="chart-axis-text">
                 {formatDateLabel(log.date)}
               </text>
             );
@@ -86,69 +77,26 @@ export const WeeklyTrendsChart: React.FC<WeeklyTrendsChartProps> = ({ recentLogs
           <text x={10} y={padding.top + graphHeight / 2 + 4} className="chart-axis-text">5</text>
           <text x={10} y={padding.top + graphHeight + 4} className="chart-axis-text">1</text>
 
-          {/* 1. Mood Line */}
-          {showMood && moodPoints && (
-            <>
-              <polyline points={moodPoints} className="chart-line" />
-              {recentLogs.map((log, index) => {
-                const x = padding.left + (index / (recentLogs.length - 1)) * graphWidth;
-                const y = padding.top + (1 - (log.mood - 1) / 9) * graphHeight;
-                return (
-                  <circle key={`mood-${log.id}`} cx={x} cy={y} r="4" className="chart-dot">
-                    <title>{`Mood on ${log.date}: ${log.mood}/10`}</title>
-                  </circle>
-                );
-              })}
-            </>
-          )}
-
-          {/* 2. Stress Line */}
-          {showStress && stressPoints && (
-            <>
-              <polyline points={stressPoints} className="chart-line-secondary" style={{ stroke: 'var(--danger)' }} />
-              {recentLogs.map((log, index) => {
-                const x = padding.left + (index / (recentLogs.length - 1)) * graphWidth;
-                const y = padding.top + (1 - (log.stress - 1) / 9) * graphHeight;
-                return (
-                  <circle key={`stress-${log.id}`} cx={x} cy={y} r="4" className="chart-dot-secondary" style={{ stroke: 'var(--danger)' }}>
-                    <title>{`Stress on ${log.date}: ${log.stress}/10`}</title>
-                  </circle>
-                );
-              })}
-            </>
-          )}
-
-          {/* 3. Energy Line */}
-          {showEnergy && energyPoints && (
-            <>
-              <polyline points={energyPoints} className="chart-line-secondary" style={{ stroke: 'var(--warning)', strokeDasharray: 'none', strokeWidth: 3 }} />
-              {recentLogs.map((log, index) => {
-                const x = padding.left + (index / (recentLogs.length - 1)) * graphWidth;
-                const y = padding.top + (1 - ((log.energy || 1) - 1) / 9) * graphHeight;
-                return (
-                  <circle key={`energy-${log.id}`} cx={x} cy={y} r="4" className="chart-dot-secondary" style={{ stroke: 'var(--warning)' }}>
-                    <title>{`Energy on ${log.date}: ${log.energy || 1}/10`}</title>
-                  </circle>
-                );
-              })}
-            </>
-          )}
-
-          {/* 4. Sleep Quality Line */}
-          {showSleep && sleepPoints && (
-            <>
-              <polyline points={sleepPoints} className="chart-line-secondary" style={{ stroke: 'var(--success)', strokeDasharray: '3' }} />
-              {recentLogs.map((log, index) => {
-                const x = padding.left + (index / (recentLogs.length - 1)) * graphWidth;
-                const y = padding.top + (1 - ((log.sleepQuality || 1) - 1) / 9) * graphHeight;
-                return (
-                  <circle key={`sleep-${log.id}`} cx={x} cy={y} r="4" className="chart-dot-secondary" style={{ stroke: 'var(--success)' }}>
-                    <title>{`Sleep Quality on ${log.date}: ${log.sleepQuality || 1}/10`}</title>
-                  </circle>
-                );
-              })}
-            </>
-          )}
+          {/* Trend Lines — data-driven */}
+          {TREND_LINES.map((line) => {
+            const points = getPoints(line.key);
+            if (!visible[line.key] || !points) return null;
+            return (
+              <React.Fragment key={line.key}>
+                <polyline points={points} className={line.className} style={line.strokeStyle} />
+                {recentLogs.map((log, index) => {
+                  const x = padding.left + (index / (recentLogs.length - 1)) * graphWidth;
+                  const val = log[line.key] || 1;
+                  const y = padding.top + (1 - (val - 1) / 9) * graphHeight;
+                  return (
+                    <circle key={`${line.key}-${log.id}`} cx={x} cy={y} r="4" className={line.dotClass} style={{ stroke: line.color }}>
+                      <title>{`${line.label} on ${log.date}: ${val}/10`}</title>
+                    </circle>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
         </svg>
       </div>
 
@@ -181,75 +129,27 @@ export const WeeklyTrendsChart: React.FC<WeeklyTrendsChartProps> = ({ recentLogs
         </table>
       </div>
 
-      {/* Legend checkboxes */}
+      {/* Legend checkboxes — data-driven */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.75rem', marginTop: '1rem' }} role="group" aria-label="Toggle trend lines visibility">
-        <button
-          type="button"
-          className="trigger-pill"
-          aria-pressed={showMood}
-          style={{
-            background: showMood ? 'var(--primary-light)' : 'none',
-            borderColor: 'var(--primary)',
-            color: 'var(--text-primary)',
-            fontSize: '0.75rem',
-            fontWeight: 600
-          }}
-          onClick={() => setShowMood(!showMood)}
-        >
-          <span style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%', display: 'inline-block', marginRight: '4px' }} aria-hidden="true"></span>
-          Mood {showMood ? '✓' : ''}
-        </button>
-
-        <button
-          type="button"
-          className="trigger-pill"
-          aria-pressed={showStress}
-          style={{
-            background: showStress ? 'rgba(239, 68, 68, 0.15)' : 'none',
-            borderColor: 'var(--danger)',
-            color: 'var(--text-primary)',
-            fontSize: '0.75rem',
-            fontWeight: 600
-          }}
-          onClick={() => setShowStress(!showStress)}
-        >
-          <span style={{ width: '8px', height: '8px', background: 'var(--danger)', borderRadius: '50%', display: 'inline-block', marginRight: '4px' }} aria-hidden="true"></span>
-          Stress {showStress ? '✓' : ''}
-        </button>
-
-        <button
-          type="button"
-          className="trigger-pill"
-          aria-pressed={showEnergy}
-          style={{
-            background: showEnergy ? 'rgba(245, 158, 11, 0.15)' : 'none',
-            borderColor: 'var(--warning)',
-            color: 'var(--text-primary)',
-            fontSize: '0.75rem',
-            fontWeight: 600
-          }}
-          onClick={() => setShowEnergy(!showEnergy)}
-        >
-          <span style={{ width: '8px', height: '8px', background: 'var(--warning)', borderRadius: '50%', display: 'inline-block', marginRight: '4px' }} aria-hidden="true"></span>
-          Energy {showEnergy ? '✓' : ''}
-        </button>
-
-        <button
-          type="button"
-          className="trigger-pill"
-          aria-pressed={showSleep}
-          style={{
-            background: showSleep ? 'rgba(16, 185, 129, 0.15)' : 'none',
-            borderColor: 'var(--success)',
-            color: 'var(--text-primary)',
-            fontSize: '0.75rem',
-            fontWeight: 600
-          }}
-          onClick={() => setShowSleep(!showSleep)}
-        >
-          <span style={{ width: '8px', height: '8px', background: 'var(--success)', borderRadius: '50%', display: 'inline-block', marginRight: '4px' }} aria-hidden="true"></span>
-          Sleep {showSleep ? '✓' : ''}
-        </button>
+        {TREND_LINES.map((line) => (
+          <button
+            key={line.key}
+            type="button"
+            className="trigger-pill"
+            aria-pressed={visible[line.key]}
+            style={{
+              background: visible[line.key] ? line.color + '20' : 'none',
+              borderColor: line.color,
+              color: 'var(--text-primary)',
+              fontSize: '0.75rem',
+              fontWeight: 600
+            }}
+            onClick={() => toggleLine(line.key)}
+          >
+            <span style={{ width: '8px', height: '8px', background: line.color, borderRadius: '50%', display: 'inline-block', marginRight: '4px' }} aria-hidden="true"></span>
+            {line.label} {visible[line.key] ? '✓' : ''}
+          </button>
+        ))}
       </div>
     </div>
   );
