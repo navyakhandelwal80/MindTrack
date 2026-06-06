@@ -3,9 +3,11 @@ import { formatDateString, getDaysAgo } from './date';
 import {
   safeStorage,
   safeParseJSON,
+  sanitizeId,
   isValidProfile,
   isValidCheckIn,
-  isValidJournalEntry
+  isValidJournalEntry,
+  INPUT_LIMITS
 } from './securityUtils';
 
 const STORAGE_KEYS = {
@@ -206,7 +208,9 @@ export function getCheckIns(): CheckIn[] {
   initStorage();
   const checkins = safeStorage.getItem(STORAGE_KEYS.CHECKINS);
   const parsed = safeParseJSON<CheckIn[]>(checkins, []);
-  return Array.isArray(parsed) ? parsed.filter(isValidCheckIn) : [];
+  if (!Array.isArray(parsed)) return [];
+  // Filter invalid entries and cap array size to prevent unbounded growth
+  return parsed.filter(isValidCheckIn).slice(0, INPUT_LIMITS.MAX_CHECKINS);
 }
 
 export function saveCheckIn(checkin: CheckIn): void {
@@ -228,8 +232,13 @@ export function saveCheckIn(checkin: CheckIn): void {
 }
 
 export function deleteCheckIn(id: string): void {
+  const safeId = sanitizeId(id);
+  if (!safeId) {
+    console.warn('[Storage] Rejected deleteCheckIn with invalid ID.');
+    return;
+  }
   const checkins = getCheckIns();
-  const filtered = checkins.filter((c) => c.id !== id);
+  const filtered = checkins.filter((c) => c.id !== safeId);
   safeStorage.setItem(STORAGE_KEYS.CHECKINS, JSON.stringify(filtered));
 }
 
@@ -238,7 +247,9 @@ export function getJournalEntries(): JournalEntry[] {
   initStorage();
   const entries = safeStorage.getItem(STORAGE_KEYS.JOURNAL);
   const parsed = safeParseJSON<JournalEntry[]>(entries, []);
-  return Array.isArray(parsed) ? parsed.filter(isValidJournalEntry) : [];
+  if (!Array.isArray(parsed)) return [];
+  // Filter invalid entries and cap array size to prevent unbounded growth
+  return parsed.filter(isValidJournalEntry).slice(0, INPUT_LIMITS.MAX_JOURNAL_ENTRIES);
 }
 
 export function saveJournalEntry(entry: JournalEntry): void {
@@ -260,8 +271,13 @@ export function saveJournalEntry(entry: JournalEntry): void {
 }
 
 export function deleteJournalEntry(id: string): void {
+  const safeId = sanitizeId(id);
+  if (!safeId) {
+    console.warn('[Storage] Rejected deleteJournalEntry with invalid ID.');
+    return;
+  }
   const entries = getJournalEntries();
-  const filtered = entries.filter((e) => e.id !== id);
+  const filtered = entries.filter((e) => e.id !== safeId);
   safeStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(filtered));
 }
 
@@ -269,9 +285,13 @@ export function deleteJournalEntry(id: string): void {
 export function getThemePreference(): 'light' | 'dark' {
   const theme = safeStorage.getItem(STORAGE_KEYS.THEME);
   if (theme === 'light' || theme === 'dark') return theme;
-  // Fallback to system preference
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
+  // Fallback to system preference — wrapped in try-catch for SSR/test safety
+  try {
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+  } catch {
+    // matchMedia unavailable — default to light
   }
   return 'light';
 }

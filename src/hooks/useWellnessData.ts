@@ -11,11 +11,19 @@ import {
   initStorage
 } from '../utils/storage';
 import { calculateCheckInStreak, calculateDaysRemaining } from '../utils/date';
-import { sanitizeString, validateCheckIn, validateJournalEntry } from '../utils/securityUtils';
+import {
+  sanitizeString,
+  sanitizeId,
+  clampNumber,
+  validateCheckIn,
+  validateJournalEntry,
+  INPUT_LIMITS
+} from '../utils/securityUtils';
 
 /**
  * Central data management hook for the MindTrack application.
  * Handles loading, validating, sanitizing, and persisting all user data.
+ * All inputs are sanitized with enforced length limits before storage.
  */
 export function useWellnessData() {
   const [profile, setProfile] = useState<UserProfile>({
@@ -30,79 +38,109 @@ export function useWellnessData() {
 
   // Initialize and load all data from storage
   const loadData = () => {
-    initStorage();
-    const loadedProfile = getProfile();
-    const loadedCheckins = getCheckIns();
-    const loadedJournal = getJournalEntries();
+    try {
+      initStorage();
+      const loadedProfile = getProfile();
+      const loadedCheckins = getCheckIns();
+      const loadedJournal = getJournalEntries();
 
-    setProfile(loadedProfile);
-    setCheckins(loadedCheckins);
-    setJournalEntries(loadedJournal);
+      setProfile(loadedProfile);
+      setCheckins(loadedCheckins);
+      setJournalEntries(loadedJournal);
+    } catch (err) {
+      console.error('[useWellnessData] Failed to load data from storage:', err);
+      // State remains at safe defaults
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // Save Profile with input sanitization
+  // Save Profile with input sanitization and bounds enforcement
   const saveProfileData = (updatedProfile: UserProfile) => {
-    const sanitized: UserProfile = {
-      name: sanitizeString(updatedProfile.name.trim()),
-      exam: updatedProfile.exam,
-      examDate: updatedProfile.examDate,
-      dailyStudyGoal: Math.max(0, Math.min(24, Number(updatedProfile.dailyStudyGoal))),
-      dailySleepGoal: Math.max(0, Math.min(24, Number(updatedProfile.dailySleepGoal)))
-    };
-    storageSaveProfile(sanitized);
-    loadData();
+    try {
+      const sanitized: UserProfile = {
+        name: sanitizeString(updatedProfile.name.trim(), INPUT_LIMITS.PROFILE_NAME),
+        exam: updatedProfile.exam,
+        examDate: updatedProfile.examDate,
+        dailyStudyGoal: clampNumber(updatedProfile.dailyStudyGoal, 0, 24, 8),
+        dailySleepGoal: clampNumber(updatedProfile.dailySleepGoal, 0, 24, 7)
+      };
+      storageSaveProfile(sanitized);
+      loadData();
+    } catch (err) {
+      console.error('[useWellnessData] Failed to save profile:', err);
+    }
   };
 
-  // Save Check-in with validation and sanitization
+  // Save Check-in with validation, sanitization, and enforced limits
   const saveCheckInData = (checkin: CheckIn): { success: boolean; errors?: string[] } => {
-    const validationResult = validateCheckIn(checkin);
-    if (!validationResult.valid) {
-      return { success: false, errors: validationResult.errors };
+    try {
+      const validationResult = validateCheckIn(checkin);
+      if (!validationResult.valid) {
+        return { success: false, errors: validationResult.errors };
+      }
+
+      const sanitizedCheckin: CheckIn = {
+        ...checkin,
+        id: sanitizeId(checkin.id) || `checkin-${Date.now()}`,
+        notes: checkin.notes
+          ? sanitizeString(checkin.notes, INPUT_LIMITS.CHECKIN_NOTES)
+          : undefined,
+        triggers: checkin.triggers
+          .slice(0, INPUT_LIMITS.MAX_TRIGGERS)
+          .map((t) => sanitizeString(t, 50))
+      };
+
+      storageSaveCheckIn(sanitizedCheckin);
+      loadData();
+      return { success: true };
+    } catch (err) {
+      console.error('[useWellnessData] Failed to save check-in:', err);
+      return { success: false, errors: ['An unexpected error occurred while saving.'] };
     }
-
-    const sanitizedCheckin: CheckIn = {
-      ...checkin,
-      notes: checkin.notes ? sanitizeString(checkin.notes) : undefined,
-      triggers: checkin.triggers.map((t) => sanitizeString(t))
-    };
-
-    storageSaveCheckIn(sanitizedCheckin);
-    loadData();
-    return { success: true };
   };
 
-  // Save Journal Entry with validation and sanitization
+  // Save Journal Entry with validation, sanitization, and enforced limits
   const saveJournalEntryData = (entry: JournalEntry): { success: boolean; errors?: string[] } => {
-    const validationResult = validateJournalEntry(entry);
-    if (!validationResult.valid) {
-      return { success: false, errors: validationResult.errors };
+    try {
+      const validationResult = validateJournalEntry(entry);
+      if (!validationResult.valid) {
+        return { success: false, errors: validationResult.errors };
+      }
+
+      const sanitizedEntry: JournalEntry = {
+        id: sanitizeId(entry.id) || `journal-${Date.now()}`,
+        date: entry.date,
+        title: sanitizeString(entry.title.trim(), INPUT_LIMITS.JOURNAL_TITLE),
+        content: sanitizeString(entry.content.trim(), INPUT_LIMITS.JOURNAL_CONTENT),
+        gratitude: sanitizeString(entry.gratitude.trim(), INPUT_LIMITS.JOURNAL_GRATITUDE),
+        achievement: sanitizeString(entry.achievement.trim(), INPUT_LIMITS.JOURNAL_ACHIEVEMENT),
+        mood: entry.mood,
+        stress: entry.stress,
+        tags: entry.tags
+          .slice(0, INPUT_LIMITS.MAX_TAGS)
+          .map((t) => sanitizeString(t.trim(), INPUT_LIMITS.JOURNAL_TAG))
+      };
+
+      storageSaveJournalEntry(sanitizedEntry);
+      loadData();
+      return { success: true };
+    } catch (err) {
+      console.error('[useWellnessData] Failed to save journal entry:', err);
+      return { success: false, errors: ['An unexpected error occurred while saving.'] };
     }
-
-    const sanitizedEntry: JournalEntry = {
-      id: entry.id,
-      date: entry.date,
-      title: sanitizeString(entry.title.trim()),
-      content: sanitizeString(entry.content.trim()),
-      gratitude: sanitizeString(entry.gratitude.trim()),
-      achievement: sanitizeString(entry.achievement.trim()),
-      mood: entry.mood,
-      stress: entry.stress,
-      tags: entry.tags.map((t) => sanitizeString(t.trim()))
-    };
-
-    storageSaveJournalEntry(sanitizedEntry);
-    loadData();
-    return { success: true };
   };
 
-  // Delete Journal Entry
+  // Delete Journal Entry with ID validation
   const deleteJournalEntryData = (id: string) => {
-    storageDeleteJournalEntry(id);
-    loadData();
+    try {
+      storageDeleteJournalEntry(id);
+      loadData();
+    } catch (err) {
+      console.error('[useWellnessData] Failed to delete journal entry:', err);
+    }
   };
 
   return {
