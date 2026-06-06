@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpen, Heart, ChevronRight } from 'lucide-react';
 import type { CheckIn, UserProfile, DailyQuote, TabName } from '../types';
 import { getRandomQuote } from '../utils/quotes';
-import { calculateWellnessScore, classifyWellnessStatus } from '../utils/wellnessEngine';
+import { calculateWellnessScore, classifyWellnessStatus, calculateAverageMetric } from '../utils/wellnessEngine';
 import { calculateCheckInStreak } from '../utils/date';
 
 // Sub-components
@@ -28,35 +28,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, checkins, onNavig
     setQuote(getRandomQuote());
   };
 
-  // Calculate averages over past 7 logs
-  const getRecentMetrics = () => {
-    const recent = checkins.slice(-7);
-    if (recent.length === 0) {
-      return { avgMood: 0, avgStress: 0, avgEnergy: 0, avgSleep: 0, checkInDoneToday: false };
-    }
-
-    const totalMood = recent.reduce((sum, c) => sum + c.mood, 0);
-    const totalStress = recent.reduce((sum, c) => sum + c.stress, 0);
-    const totalEnergy = recent.reduce((sum, c) => sum + (c.energy || 6), 0);
-    const totalSleep = recent.reduce((sum, c) => sum + (c.sleepQuality || 6), 0);
-    
-    const todayStr = new Date().toISOString().split('T')[0];
-    const checkInDoneToday = checkins.some((c) => c.date === todayStr);
-
-    return {
-      avgMood: parseFloat((totalMood / recent.length).toFixed(1)),
-      avgStress: parseFloat((totalStress / recent.length).toFixed(1)),
-      avgEnergy: parseFloat((totalEnergy / recent.length).toFixed(1)),
-      avgSleep: parseFloat((totalSleep / recent.length).toFixed(1)),
-      checkInDoneToday,
-    };
-  };
+  // Calculate averages over past 7 logs using the shared utility
+  const recentLogs = checkins.slice(-7);
+  const avgMood = calculateAverageMetric(recentLogs, 'mood');
+  const avgStress = calculateAverageMetric(recentLogs, 'stress');
+  const avgEnergy = calculateAverageMetric(recentLogs, 'energy');
+  const avgSleep = calculateAverageMetric(recentLogs, 'sleepQuality');
+  const todayStr = new Date().toISOString().split('T')[0];
+  const checkInDoneToday = checkins.some((c) => c.date === todayStr);
 
   const streak = calculateCheckInStreak(checkins);
-  const metrics = getRecentMetrics();
 
   // Engine calculations
-  const recentLogs = checkins.slice(-7);
   const wellnessScore = calculateWellnessScore(recentLogs);
   const wellnessStatus = classifyWellnessStatus(wellnessScore);
 
@@ -73,7 +56,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, checkins, onNavig
       />
 
       {/* 3. Log Pending Alert / Completed Status */}
-      {!metrics.checkInDoneToday ? (
+      {!checkInDoneToday ? (
         <div className="glass-card animated-slide-up" style={{ border: '1px dashed var(--primary)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -96,10 +79,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, checkins, onNavig
       {/* 4. Metrics & Averages Grid */}
       <MetricsAveragesCard
         streak={streak}
-        avgMood={metrics.avgMood}
-        avgStress={metrics.avgStress}
-        avgEnergy={metrics.avgEnergy}
-        avgSleep={metrics.avgSleep}
+        avgMood={avgMood}
+        avgStress={avgStress}
+        avgEnergy={avgEnergy}
+        avgSleep={avgSleep}
         onSeeTrends={() => onNavigate('analytics')}
       />
 

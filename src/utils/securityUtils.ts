@@ -1,3 +1,4 @@
+import { VALID_EXAM_TYPES } from '../types';
 import type { CheckIn, JournalEntry, UserProfile } from '../types';
 
 /**
@@ -137,7 +138,7 @@ export function isValidProfile(data: unknown): data is UserProfile {
 export function isValidCheckIn(data: unknown): data is CheckIn {
   if (!data || typeof data !== 'object') return false;
   const c = data as Record<string, unknown>;
-  const validExams = ['JEE', 'NEET', 'UPSC', 'CAT', 'GATE', 'CUET', 'Boards', 'Other'];
+  const validExams: readonly string[] = VALID_EXAM_TYPES;
   return (
     typeof c.id === 'string' &&
     typeof c.date === 'string' &&
@@ -210,7 +211,7 @@ export function validateCheckIn(data: unknown): { valid: boolean; errors: string
     errors.push('Study duration must be between 0 and 24 hours.');
   }
 
-  const validExams = ['JEE', 'NEET', 'UPSC', 'CAT', 'GATE', 'CUET', 'Boards', 'Other'];
+  const validExams: readonly string[] = VALID_EXAM_TYPES;
   if (!payload.examType || typeof payload.examType !== 'string' || !validExams.includes(payload.examType)) {
     errors.push(`Exam type must be one of: ${validExams.join(', ')}.`);
   }

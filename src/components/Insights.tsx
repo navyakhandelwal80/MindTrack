@@ -3,6 +3,7 @@ import { Sparkles, Activity, Clock, ShieldAlert, Award, ChevronDown, Moon } from
 import type { CheckIn } from '../types';
 import { getProfile, getJournalEntries } from '../utils/storage';
 import { generateWellnessRecommendations } from '../utils/wellnessEngine';
+import { getStatusColor } from '../utils/presentation';
 
 interface InsightsProps {
   checkins: CheckIn[];
@@ -15,15 +16,6 @@ export const Insights: React.FC<InsightsProps> = ({ checkins }) => {
   // Generate wellness recommendations using the expert engine
   const recentLogs = checkins.slice(-7);
   const wellness = generateWellnessRecommendations(recentLogs, journalEntries, profile);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Healthy': return 'var(--success)';
-      case 'Moderate Concern': return 'var(--warning)';
-      case 'High Stress': return '#f97316'; // Orange
-      default: return 'var(--danger)';
-    }
-  };
 
   const statusColor = getStatusColor(wellness.status);
 

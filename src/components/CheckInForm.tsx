@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle } from 'lucide-react';
-import type { CheckIn } from '../types';
+import type { CheckIn, ExamType } from '../types';
+import { VALID_EXAM_TYPES } from '../types';
 import { formatDateString } from '../utils/date';
 import {
   getRatingColor,
@@ -19,17 +20,6 @@ interface CheckInFormProps {
   onSave: (checkin: CheckIn) => void;
 }
 
-const EXAM_TYPES = [
-  'JEE',
-  'NEET',
-  'UPSC',
-  'CAT',
-  'GATE',
-  'CUET',
-  'Boards',
-  'Other'
-];
-
 export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSave }) => {
   const [date, setDate] = useState<string>(formatDateString(new Date()));
   const [mood, setMood] = useState<number>(6); // Default to Neutral/Good
@@ -37,7 +27,7 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
   const [energy, setEnergy] = useState<number>(6); // Default to Moderate
   const [sleepQuality, setSleepQuality] = useState<number>(7); // Default to Good
   const [studyHours, setStudyHours] = useState<number>(8);
-  const [examType, setExamType] = useState<CheckIn['examType']>('JEE');
+  const [examType, setExamType] = useState<ExamType>('JEE');
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
   const [exerciseMinutes, setExerciseMinutes] = useState<number>(30);
   const [waterCups, setWaterCups] = useState<number>(6);
@@ -53,7 +43,7 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
       setEnergy(existing.energy || 6);
       setSleepQuality(existing.sleepQuality || 7);
       setStudyHours(existing.studyHours);
-      setExamType(existing.examType || 'JEE');
+      setExamType((existing.examType || 'JEE') as ExamType);
       setSelectedTriggers(existing.triggers);
       setExerciseMinutes(existing.exerciseMinutes || 30);
       setWaterCups(existing.waterCups || 6);
@@ -145,9 +135,9 @@ export const CheckInForm: React.FC<CheckInFormProps> = ({ existingCheckIns, onSa
                   id="checkin-exam"
                   className="form-select"
                   value={examType}
-                  onChange={(e) => setExamType(e.target.value as CheckIn['examType'])}
+                  onChange={(e) => setExamType(e.target.value as ExamType)}
                 >
-                  {EXAM_TYPES.map((eType) => (
+                  {VALID_EXAM_TYPES.map((eType) => (
                     <option key={eType} value={eType}>{eType}</option>
                   ))}
                 </select>

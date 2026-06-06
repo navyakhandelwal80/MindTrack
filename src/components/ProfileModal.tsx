@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Save } from 'lucide-react';
-import type { UserProfile } from '../types';
+import type { UserProfile, ExamType } from '../types';
+import { VALID_EXAM_TYPES } from '../types';
 
 interface ProfileModalProps {
   profile: UserProfile;
@@ -9,16 +10,17 @@ interface ProfileModalProps {
   onSave: (profile: UserProfile) => void;
 }
 
-const AVAILABLE_EXAMS = [
-  'JEE (IIT Joint Entrance Exam)',
-  'NEET (National Eligibility cum Entrance Test)',
-  'UPSC (Union Public Service Commission)',
-  'GATE (Graduate Aptitude Test in Engineering)',
-  'CAT (Common Admission Test)',
-  'CUET (Common University Entrance Test)',
-  'Board Exams (Class 10/12)',
-  'Other Competitive Exams'
-];
+/** Human-readable labels for each exam type. */
+const EXAM_LABELS: Record<ExamType, string> = {
+  JEE: 'JEE (IIT Joint Entrance Exam)',
+  NEET: 'NEET (National Eligibility cum Entrance Test)',
+  UPSC: 'UPSC (Union Public Service Commission)',
+  GATE: 'GATE (Graduate Aptitude Test in Engineering)',
+  CAT: 'CAT (Common Admission Test)',
+  CUET: 'CUET (Common University Entrance Test)',
+  Boards: 'Board Exams (Class 10/12)',
+  Other: 'Other Competitive Exams'
+};
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
   profile,
@@ -27,7 +29,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onSave,
 }) => {
   const [name, setName] = useState<string>(profile.name);
-  const [exam, setExam] = useState<string>(profile.exam);
+  const [exam, setExam] = useState<ExamType>(profile.exam);
   const [examDate, setExamDate] = useState<string>(profile.examDate || '');
   const [dailyStudyGoal, setDailyStudyGoal] = useState<number>(profile.dailyStudyGoal);
   const [dailySleepGoal, setDailySleepGoal] = useState<number>(profile.dailySleepGoal);
@@ -84,11 +86,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               id="profile-exam"
               className="form-select"
               value={exam}
-              onChange={(e) => setExam(e.target.value)}
+              onChange={(e) => setExam(e.target.value as ExamType)}
             >
-              {AVAILABLE_EXAMS.map((examOpt) => (
-                <option key={examOpt} value={examOpt.split(' ')[0]}>
-                  {examOpt}
+              {VALID_EXAM_TYPES.map((examKey) => (
+                <option key={examKey} value={examKey}>
+                  {EXAM_LABELS[examKey]}
                 </option>
               ))}
             </select>

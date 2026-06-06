@@ -10,8 +10,13 @@ import {
   deleteJournalEntry as storageDeleteJournalEntry,
   initStorage
 } from '../utils/storage';
+import { calculateCheckInStreak, calculateDaysRemaining } from '../utils/date';
 import { sanitizeString, validateCheckIn, validateJournalEntry } from '../utils/securityUtils';
 
+/**
+ * Central data management hook for the MindTrack application.
+ * Handles loading, validating, sanitizing, and persisting all user data.
+ */
 export function useWellnessData() {
   const [profile, setProfile] = useState<UserProfile>({
     name: 'Aspirant',
@@ -22,10 +27,8 @@ export function useWellnessData() {
   });
   const [checkins, setCheckins] = useState<CheckIn[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
-  const [streak, setStreak] = useState<number>(0);
-  const [daysRemaining, setDaysRemaining] = useState<number>(0);
 
-  // Initialize and load
+  // Initialize and load all data from storage
   const loadData = () => {
     initStorage();
     const loadedProfile = getProfile();
@@ -35,75 +38,23 @@ export function useWellnessData() {
     setProfile(loadedProfile);
     setCheckins(loadedCheckins);
     setJournalEntries(loadedJournal);
-
-    // Calculate countdown
-    if (loadedProfile.examDate) {
-      const examDateObj = new Date(loadedProfile.examDate);
-      const today = new Date();
-      examDateObj.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-      const diffTime = examDateObj.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      setDaysRemaining(diffDays > 0 ? diffDays : 0);
-    } else {
-      setDaysRemaining(0);
-    }
-
-    // Calculate streak
-    setStreak(calculateStreak(loadedCheckins));
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // Streak calculation helper
-  const calculateStreak = (logs: CheckIn[]) => {
-    if (logs.length === 0) return 0;
-    
-    const sorted = [...logs].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-    const latestDate = sorted[0].date;
-    if (latestDate !== todayStr && latestDate !== yesterdayStr) {
-      return 0;
-    }
-
-    let currentDate = new Date(latestDate);
-    let count = 1;
-
-    for (let i = 1; i < sorted.length; i++) {
-      const nextDate = new Date(sorted[i].date);
-      const diffTime = currentDate.getTime() - nextDate.getTime();
-      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays === 1) {
-        count++;
-        currentDate = nextDate;
-      } else if (diffDays > 1) {
-        break;
-      }
-    }
-    return count;
-  };
-
   // Save Profile with input sanitization
   const saveProfileData = (updatedProfile: UserProfile) => {
     const sanitized: UserProfile = {
       name: sanitizeString(updatedProfile.name.trim()),
-      exam: sanitizeString(updatedProfile.exam.trim()),
+      exam: updatedProfile.exam,
       examDate: updatedProfile.examDate,
       dailyStudyGoal: Math.max(0, Math.min(24, Number(updatedProfile.dailyStudyGoal))),
       dailySleepGoal: Math.max(0, Math.min(24, Number(updatedProfile.dailySleepGoal)))
     };
     storageSaveProfile(sanitized);
-    loadData(); // reload
+    loadData();
   };
 
   // Save Check-in with validation and sanitization
@@ -120,7 +71,7 @@ export function useWellnessData() {
     };
 
     storageSaveCheckIn(sanitizedCheckin);
-    loadData(); // reload
+    loadData();
     return { success: true };
   };
 
@@ -144,22 +95,24 @@ export function useWellnessData() {
     };
 
     storageSaveJournalEntry(sanitizedEntry);
-    loadData(); // reload
+    loadData();
     return { success: true };
   };
 
   // Delete Journal Entry
   const deleteJournalEntryData = (id: string) => {
     storageDeleteJournalEntry(id);
-    loadData(); // reload
+    loadData();
   };
 
   return {
     profile,
     checkins,
     journalEntries,
-    streak,
-    daysRemaining,
+    /** Current consecutive check-in day count (derived, not stored) */
+    streak: calculateCheckInStreak(checkins),
+    /** Days until target exam date (derived, not stored) */
+    daysRemaining: calculateDaysRemaining(profile.examDate),
     saveProfile: saveProfileData,
     saveCheckIn: saveCheckInData,
     saveJournalEntry: saveJournalEntryData,

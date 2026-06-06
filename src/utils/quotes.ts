@@ -53,5 +53,5 @@ export const MOTIVATIONAL_QUOTES: DailyQuote[] = [
 
 export function getRandomQuote(): DailyQuote {
   const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
-  return MOTIVATIONAL_QUOTES[randomIndex];
+  return MOTIVATIONAL_QUOTES[randomIndex] ?? { text: 'Keep going. You are doing great.', author: 'MindTrack' };
 }

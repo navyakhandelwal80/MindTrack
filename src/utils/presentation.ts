@@ -87,12 +87,14 @@ export function getSleepLabel(level: number): string {
   return 'Refreshed';
 }
 
+import type { WellnessStatus } from '../types';
+
 /**
  * Returns the theme color mapped to a wellness status class.
  * @param status - The classified wellness state
  * @returns Theme color variable or hex code
  */
-export function getStatusColor(status: string): string {
+export function getStatusColor(status: WellnessStatus): string {
   switch (status) {
     case 'Healthy':
       return 'var(--success)';
@@ -100,7 +102,7 @@ export function getStatusColor(status: string): string {
       return 'var(--warning)';
     case 'High Stress':
       return '#f97316'; // Orange
-    default:
+    case 'Burnout Risk':
       return 'var(--danger)';
   }
 }

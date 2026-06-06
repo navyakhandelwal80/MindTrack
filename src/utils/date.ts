@@ -74,7 +74,9 @@ export function calculateCheckInStreak(checkins: CheckIn[]): number {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-  const latestDate = sorted[0].date;
+  const latestEntry = sorted[0];
+  if (!latestEntry) return 0;
+  const latestDate = latestEntry.date;
   if (latestDate !== todayStr && latestDate !== yesterdayStr) {
     return 0;
   }
@@ -83,7 +85,9 @@ export function calculateCheckInStreak(checkins: CheckIn[]): number {
   let count = 1;
 
   for (let i = 1; i < sorted.length; i++) {
-    const nextDate = new Date(sorted[i].date);
+    const entry = sorted[i];
+    if (!entry) break;
+    const nextDate = new Date(entry.date);
     const diffTime = currentDate.getTime() - nextDate.getTime();
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
     

@@ -17,7 +17,7 @@ export const AffirmationBanner: React.FC = () => {
   const [affirmation, setAffirmation] = useState<string>('');
 
   useEffect(() => {
-    setAffirmation(POSITIVE_AFFIRMATIONS[Math.floor(Math.random() * POSITIVE_AFFIRMATIONS.length)]);
+    setAffirmation(POSITIVE_AFFIRMATIONS[Math.floor(Math.random() * POSITIVE_AFFIRMATIONS.length)] ?? '');
   }, []);
 
   const rotateAffirmation = () => {
@@ -25,7 +25,7 @@ export const AffirmationBanner: React.FC = () => {
     do {
       nextIdx = Math.floor(Math.random() * POSITIVE_AFFIRMATIONS.length);
     } while (POSITIVE_AFFIRMATIONS[nextIdx] === affirmation);
-    setAffirmation(POSITIVE_AFFIRMATIONS[nextIdx]);
+    setAffirmation(POSITIVE_AFFIRMATIONS[nextIdx] ?? '');
   };
 
   return (

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Sparkles, Activity } from 'lucide-react';
-import type { TabName, UserProfile, CheckIn, JournalEntry } from './types';
+import type { TabName, CheckIn, JournalEntry } from './types';
 
 // Custom Hooks
 import useTheme from './hooks/useTheme';
@@ -35,10 +35,7 @@ function App() {
     deleteJournalEntry
   } = useWellnessData();
 
-  // Save profile helper
-  const handleSaveProfile = (updatedProfile: UserProfile) => {
-    saveProfile(updatedProfile);
-  };
+
 
   // Save Check-in helper
   const handleSaveCheckIn = (newCheckIn: CheckIn) => {
@@ -202,7 +199,7 @@ function App() {
           profile={profile}
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
-          onSave={handleSaveProfile}
+          onSave={saveProfile}
         />
       </div>
     </ErrorBoundary>

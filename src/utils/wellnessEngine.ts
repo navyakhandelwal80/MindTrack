@@ -1,8 +1,8 @@
-import type { CheckIn, JournalEntry, UserProfile } from '../types';
+import type { CheckIn, JournalEntry, UserProfile, WellnessStatus, ExamType } from '../types';
 
 export interface WellnessRecommendations {
   score: number;
-  status: 'Healthy' | 'Moderate Concern' | 'High Stress' | 'Burnout Risk';
+  status: WellnessStatus;
   encouragement: string;
   stressRecommendations: string[];
   studyLifeBalance: string[];
@@ -13,6 +13,9 @@ export interface WellnessRecommendations {
 
 /**
  * Calculates the average of any check-in numeric parameter over the logs array.
+ * @param logs - Array of check-in logs
+ * @param key - The metric key to average
+ * @returns Rounded average value (1 decimal place), or 0 if no logs
  */
 export function calculateAverageMetric(
   logs: CheckIn[],
@@ -25,16 +28,19 @@ export function calculateAverageMetric(
 
 /**
  * Calculates the Wellness Score from 0 to 100 based on the last 7 check-in logs.
+ * Components: mood (25pts), inverse stress (25pts), energy (25pts), sleep quality (25pts).
+ * Adjusted for study-life balance and active burnout triggers.
+ * @param recentLogs - Last 7 check-in entries
+ * @returns Clamped integer score between 0–100
  */
 export function calculateWellnessScore(recentLogs: CheckIn[]): number {
   if (!recentLogs || recentLogs.length === 0) return 70; // baseline neutral score if empty
 
-  const count = recentLogs.length;
-  const avgMood = recentLogs.reduce((sum, c) => sum + c.mood, 0) / count;
-  const avgStress = recentLogs.reduce((sum, c) => sum + c.stress, 0) / count;
-  const avgEnergy = recentLogs.reduce((sum, c) => sum + (c.energy || 6), 0) / count;
-  const avgSleep = recentLogs.reduce((sum, c) => sum + (c.sleepQuality || 6), 0) / count;
-  const avgStudy = recentLogs.reduce((sum, c) => sum + c.studyHours, 0) / count;
+  const avgMood = calculateAverageMetric(recentLogs, 'mood');
+  const avgStress = calculateAverageMetric(recentLogs, 'stress');
+  const avgEnergy = calculateAverageMetric(recentLogs, 'energy');
+  const avgSleep = calculateAverageMetric(recentLogs, 'sleepQuality');
+  const avgStudy = recentLogs.reduce((s, c) => s + c.studyHours, 0) / recentLogs.length;
 
   // 1. Mood Component (0 to 25 pts)
   const moodScore = (avgMood / 10) * 25;
@@ -71,9 +77,11 @@ export function calculateWellnessScore(recentLogs: CheckIn[]): number {
 }
 
 /**
- * Classifies the Wellness Score.
+ * Classifies the Wellness Score into a named status tier.
+ * @param score - Wellness score (0–100)
+ * @returns One of the four WellnessStatus values
  */
-export function classifyWellnessStatus(score: number): 'Healthy' | 'Moderate Concern' | 'High Stress' | 'Burnout Risk' {
+export function classifyWellnessStatus(score: number): WellnessStatus {
   if (score >= 75) return 'Healthy';
   if (score >= 50) return 'Moderate Concern';
   if (score >= 30) return 'High Stress';
@@ -81,7 +89,61 @@ export function classifyWellnessStatus(score: number): 'Healthy' | 'Moderate Con
 }
 
 /**
+ * Returns exam-specific study advice tailored to the student's target examination.
+ * @param exam - The student's target exam type
+ * @returns Array of exam-specific recommendation strings
+ */
+function getExamSpecificAdvice(exam: ExamType): string[] {
+  switch (exam) {
+    case 'JEE':
+      return [
+        "For JEE: alternate Physics problem sets with Chemistry theory to avoid single-subject fatigue.",
+        "Practice timed mini-tests (30 min/subject) to build speed for the 3-hour JEE paper format.",
+      ];
+    case 'NEET':
+      return [
+        "For NEET: balance Biology memorization sessions with Physics problem-solving to keep both hemispheres active.",
+        "Use spaced repetition for NEET Biology diagrams — review them at 1-day, 3-day, and 7-day intervals.",
+      ];
+    case 'UPSC':
+      return [
+        "For UPSC: schedule answer-writing practice 3 times per week to build exam endurance for the Mains.",
+        "Rotate between current affairs, optional subject, and GS to prevent monotony-induced burnout.",
+      ];
+    case 'CAT':
+      return [
+        "For CAT: dedicate at least 30 minutes daily to reading comprehension passages to build stamina.",
+        "Practice Data Interpretation sets under timed conditions to improve accuracy under pressure.",
+      ];
+    case 'GATE':
+      return [
+        "For GATE: focus on one subject per week for deep mastery rather than shallow multi-topic coverage.",
+        "Solve previous year GATE papers under timed conditions to identify weak conceptual areas.",
+      ];
+    case 'CUET':
+      return [
+        "For CUET: practice domain-specific MCQs daily to build speed across your chosen subjects.",
+        "Review NCERT thoroughly — CUET questions align heavily with textbook fundamentals.",
+      ];
+    case 'Boards':
+      return [
+        "For Board Exams: create concise revision notes for each chapter and revise them weekly.",
+        "Practice sample papers with strict time limits to improve time management during the exam.",
+      ];
+    default:
+      return [
+        "Set 2–3 focused daily study goals and track completion to build steady momentum.",
+      ];
+  }
+}
+
+/**
  * Generates personalized, supportive, non-medical wellness recommendations based on student logs.
+ * Incorporates exam-specific advice, journal sentiment analysis, and habit correlation patterns.
+ * @param recentLogs - Last 7 check-in entries
+ * @param journalEntries - All journal entries for sentiment analysis
+ * @param profile - Student's profile including exam type
+ * @returns Full WellnessRecommendations payload
  */
 export function generateWellnessRecommendations(
   recentLogs: CheckIn[],
@@ -92,13 +154,14 @@ export function generateWellnessRecommendations(
   const status = classifyWellnessStatus(score);
 
   const name = profile.name || 'Aspirant';
-  const exam = profile.exam || 'Competitive Exams';
+  const exam = profile.exam || 'JEE';
 
-  // Calculate averages for dynamic advice
-  const logsCount = recentLogs.length;
-  const avgSleep = logsCount > 0 ? recentLogs.reduce((s, c) => s + (c.sleepQuality || 6), 0) / logsCount : 7;
-  const avgStudy = logsCount > 0 ? recentLogs.reduce((s, c) => s + c.studyHours, 0) / logsCount : 8;
-  const avgStress = logsCount > 0 ? recentLogs.reduce((s, c) => s + c.stress, 0) / logsCount : 5;
+  // Reuse calculateAverageMetric to eliminate duplicate averaging
+  const avgSleep = recentLogs.length > 0 ? calculateAverageMetric(recentLogs, 'sleepQuality') : 7;
+  const avgStress = recentLogs.length > 0 ? calculateAverageMetric(recentLogs, 'stress') : 5;
+  const avgStudy = recentLogs.length > 0
+    ? recentLogs.reduce((s, c) => s + c.studyHours, 0) / recentLogs.length
+    : 8;
 
   // 1. Personalized Encouragement
   let encouragement = '';
@@ -125,8 +188,11 @@ export function generateWellnessRecommendations(
   if (activeTriggers.includes('Peer comparison')) {
     stressRecommendations.push("Avoid Peer comparison: Focus on your individual baseline. A 1% improvement in your chemistry or logic masteries compared to yesterday is your true growth metric.");
   }
+  if (activeTriggers.includes('Family expectations')) {
+    stressRecommendations.push("Have an honest conversation with your family about realistic expectations. Their support matters more than added pressure.");
+  }
 
-  // 3. Study-Life Balance Suggestions
+  // 3. Study-Life Balance Suggestions (with exam-specific advice)
   const studyLifeBalance: string[] = [];
   if (avgStudy > 10) {
     studyLifeBalance.push(`You are studying an average of ${avgStudy.toFixed(1)} hours. Trim daily active curriculum focus to 8-9 hours maximum.`);
@@ -137,6 +203,10 @@ export function generateWellnessRecommendations(
     studyLifeBalance.push("Your study hours are balanced. Protect your screen-free break windows in the evenings.");
   }
   studyLifeBalance.push("Dedicate 20 minutes to light physical movement (e.g. stretching or walking) to oxygenate your brain.");
+
+  // Add exam-specific advice
+  const examAdvice = getExamSpecificAdvice(exam as ExamType);
+  studyLifeBalance.push(...examAdvice);
 
   // 4. Sleep Improvement Suggestions
   const sleepImprovement: string[] = [
@@ -171,6 +241,9 @@ export function generateWellnessRecommendations(
   const journalText = journalEntries.map((j) => (j.content || '') + ' ' + (j.title || '')).join(' ').toLowerCase();
   if (journalText.includes('doubt') || journalText.includes('fear') || journalText.includes('scared')) {
     motivationReminders.push("Self-doubt is a thought pattern, not an absolute truth. Your dedication to studying is valuable, regardless of exam ranks.");
+  }
+  if (journalText.includes('fail') || journalText.includes('failure') || journalText.includes('failed')) {
+    motivationReminders.push("Every setback is a setup for a comeback. Analyse your errors, learn from them, and move forward stronger.");
   }
 
   return {
